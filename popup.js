@@ -212,9 +212,9 @@ async function automationScript(text, provider) {
             response: '.message-content, .model-response-text' 
         },
         perplexity: { 
-            input: 'textarea[placeholder*="Ask"], textarea[placeholder*="pergunta"]', 
-            btn: 'button[aria-label*="Submit"], button[aria-label*="enviar"]', 
-            response: '.prose, .default-line-height' 
+            input: '#ask-input, textarea[placeholder*="Ask"], textarea[placeholder*="pergunta"]', 
+            btn: 'button[aria-label*="Submit"], button[aria-label*="Enviar"], button.bg-button-bg', 
+            response: '.prose, [dir="auto"]' 
         }
     };
 
