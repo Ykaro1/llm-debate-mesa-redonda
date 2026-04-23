@@ -195,6 +195,9 @@ async function interactWithLLM(tabId, prompt, feedback, provider) {
     const fullPrompt = feedback ? `FEEDBACK DOS OUTROS: ${feedback}\n\nPROMPT: ${prompt}` : prompt;
     
     try {
+        // Acorda a aba para o DOM renderizar o streaming de texto corretamente
+        await chrome.tabs.update(tabId, { active: true });
+        
         const results = await chrome.scripting.executeScript({
             target: { tabId: tabId },
             func: automationScript,
@@ -210,64 +213,60 @@ async function interactWithLLM(tabId, prompt, feedback, provider) {
 
 async function automationScript(text, provider) {
     const selectors = {
-        chatgpt: { 
-            input: '#prompt-textarea', 
-            btn: 'button[data-testid="send-button"]', 
-            response: '[data-message-author-role="assistant"]' 
-        },
-        gemini: { 
-            input: 'div[role="textbox"], .ql-editor, div[aria-label*="pergunta"], div[aria-label*="Gemini"]', 
-            btn: 'button[aria-label*="Enviar"], .send-button', 
-            response: '.message-content, .model-response-text' 
-        },
-        perplexity: { 
-            input: '#ask-input, textarea[placeholder*="Ask"], textarea[placeholder*="pergunta"]', 
-            btn: 'button[aria-label*="Submit"], button[aria-label*="Enviar"], button.bg-button-bg', 
-            response: '.prose, [dir="auto"]' 
-        }
+        chatgpt: { input: '#prompt-textarea', btn: '[data-testid="send-button"]', response: '[data-message-author-role="assistant"]' },
+        gemini: { input: 'div[role="textbox"], .ql-editor', btn: '.send-button, button[aria-label*="Enviar"]', response: '.message-content, .model-response-text, .content' },
+        perplexity: { input: 'textarea[placeholder*="Ask"], textarea', btn: 'button[aria-label*="Submit"]', response: '.prose' }
     };
 
     const sel = selectors[provider];
-    let inputField = document.querySelector(sel.input);
+    let inputField = document.querySelector(sel.input) || document.querySelector('div[contenteditable="true"], textarea');
     
-    if (!inputField) {
-        inputField = document.querySelector('div[contenteditable="true"], textarea');
+    if (!inputField) return "ERRO: Campo de texto não encontrado.";
+
+    // Dispara eventos nativos para acordar o framework da página
+    inputField.focus();
+    if (inputField.tagName === 'TEXTAREA') {
+        inputField.value = text;
+    } else {
+        inputField.innerText = text;
+    }
+    inputField.dispatchEvent(new Event('input', { bubbles: true }));
+    inputField.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    await new Promise(r => setTimeout(r, 800));
+
+    // Tenta clicar no botão de envio
+    let btn = document.querySelector(sel.btn);
+    if (btn && btn.getAttribute('aria-disabled') !== 'true' && !btn.disabled) {
+        btn.click();
+    } else {
+        const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
+        inputField.dispatchEvent(enterEvent);
     }
 
-    if (inputField) {
-        inputField.focus();
-        document.execCommand('insertText', false, text);
+    // Loop de estabilidade para aguardar a IA redigir
+    let previousText = "";
+    let stableCount = 0;
+    
+    for (let i = 0; i < 45; i++) {
+        await new Promise(r => setTimeout(r, 1000));
         
-        await new Promise(r => setTimeout(r, 500));
-
-        const btn = document.querySelector(sel.btn);
-        if (btn && !btn.disabled) {
-            btn.click();
-        } else {
-            // Injeção de Enter nível React/NextJS
-            const enterDown = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
-            const enterUp = new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
-            inputField.dispatchEvent(enterDown);
-            inputField.dispatchEvent(enterUp);
-        }
-
-        let response = "";
-        for (let i = 0; i < 30; i++) { // Aumentado para 30s pois o loop é maior
-            await new Promise(r => setTimeout(r, 1000));
-            const elements = document.querySelectorAll(sel.response);
-            if (elements.length > 0) {
-                const lastRes = elements[elements.length - 1].innerText;
-                // Ignorar estados de carregamento
-                if (lastRes.length > 15 && lastRes !== response && !lastRes.includes("Searching...")) {
-                    response = lastRes;
-                    await new Promise(r => setTimeout(r, 2000)); // Espera ele terminar de redigir
-                    return elements[elements.length - 1].innerText;
+        const elements = document.querySelectorAll(sel.response);
+        if (elements.length > 0) {
+            const currentRes = elements[elements.length - 1].innerText.trim();
+            
+            if (currentRes.length > 15 && !currentRes.includes("Searching...")) {
+                if (currentRes === previousText) {
+                    stableCount++;
+                    if (stableCount >= 3) return currentRes; // Terminou de gerar
+                } else {
+                    stableCount = 0; 
+                    previousText = currentRes;
                 }
             }
         }
-        return response || "A IA não respondeu a tempo ou está carregando.";
     }
-    return "Não encontrei o campo de texto nesta página.";
+    return previousText || "ERRO: Timeout aguardando resposta.";
 }
 
 let chatHistory = [];
