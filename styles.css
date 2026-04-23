@@ -23,78 +23,26 @@ body {
     height: 100vh;
     background-color: var(--bg-color);
     color: var(--text-primary);
-    overflow: hidden;
+    overflow: hidden; /* Mantém o body fixo para o chat rolar dentro */
 }
 
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100vh; /* Ocupa exatamente a altura do painel */
     padding: 16px;
     gap: 16px;
+    box-sizing: border-box;
 }
 
-header h1 {
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-
-header h1 span {
-    color: var(--accent-color);
-}
-
-/* Painel de Status */
-.status-panel {
-    display: flex;
-    justify-content: space-around;
-    background: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 12px;
-    backdrop-filter: blur(10px);
-}
-
-.llm-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-}
-
-.dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background-color: var(--text-secondary);
-    transition: all 0.3s ease;
-    box-shadow: 0 0 0 rgba(0,0,0,0);
-}
-
-.dot.ok { background-color: var(--status-ok); box-shadow: 0 0 8px var(--status-ok); }
-.dot.thinking { 
-    background-color: var(--status-thinking); 
-    box-shadow: 0 0 8px var(--status-thinking);
-    animation: pulse 1.5s infinite;
-}
-.dot.error { background-color: var(--status-error); box-shadow: 0 0 8px var(--status-error); }
-
-@keyframes pulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.2); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-.label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
+header {
+    flex-shrink: 0;
 }
 
 /* Chat Display */
 .chat-display {
     flex: 1;
+    min-height: 0; /* ESSENCIAL: Permite que o flex child diminua e role */
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
