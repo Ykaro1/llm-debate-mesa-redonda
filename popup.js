@@ -82,73 +82,88 @@ startBtn.addEventListener('click', async () => {
 async function startMesaRedonda(prompt) {
     state.isDebating = true;
     
+    // 1. VALIDAÇÃO ESTRITA
     const tabs = await checkTabsStatus();
-    
-    if (!tabs.gemini || !tabs.perplexity) {
-        addMessage("system", "🚨 ERRO: A nova lógica exige que o Gemini e o Perplexity estejam abertos.");
+    if (!tabs.gemini || !tabs.perplexity || !tabs.chatgpt) {
+        addMessage("system", "🚨 ERRO: Debate abortado. Esta lógica exige as TRÊS abas abertas (Gemini, Perplexity e ChatGPT).");
         setDotsStatus('error');
         state.isDebating = false;
         return;
     }
 
-    addMessage("system", "🚀 Iniciando Mesa Redonda: Modo Hierárquico");
+    addMessage("system", "🚀 Iniciando Debate Circular (Contra-Argumento Ativo)");
     setDotsStatus('thinking'); 
     
-    // PASSO 1: O GEMINI FAZ A PROPOSIÇÃO INICIAL
-    addMessage("system", "1️⃣ Extraindo proposta inicial do Gemini...");
-    const geminiPrompt = `[INSTRUÇÃO DE SISTEMA: Você está em um debate. Dite a regra/proposta inicial para o seguinte tema. No final da sua resposta, escreva obrigatoriamente: "STATUS: [CONSENSO ou NÃO CONSENSO]"]\n\nTEMA: "${prompt}"`;
+    // 2. PROPOSTA INICIAL (RODADA 0)
+    addMessage("system", "✍️ [Rodada 0] Gemini formulando a Tese Inicial...");
+    const initialPrompt = `[PAPEL: PROPOSITOR] Crie uma tese inicial técnica e detalhada sobre o tema abaixo. Sua tese será desafiada por outros especialistas, então seja robusto.\n\nTEMA: "${prompt}"`;
     
-    let geminiResponse = await interactWithLLM(tabs.gemini, geminiPrompt, "", "gemini");
-    addMessage("gemini", geminiResponse.content);
+    let currentThesis = (await interactWithLLM(tabs.gemini, initialPrompt, "", "gemini")).content;
+    addMessage("gemini", `<b>Tese Inicial:</b><br>${currentThesis}`);
     
     let consensusReached = false;
     let rounds = 0;
-    let currentProposal = geminiResponse.content;
 
-    // PASSO 2: O LOOP DE CONSENSO (GEMINI VS PERPLEXITY)
+    // 3. LOOP DE AVALIAÇÃO (DEBATE CIRCULAR)
     while (!consensusReached && rounds < CONFIG.maxRounds) {
         rounds++;
-        addMessage("system", `🔄 Rodada ${rounds}: Perplexity verificando fatos...`);
+        addMessage("system", `⚖️ [Rodada ${rounds}] Enviando tese para avaliação crítica...`);
         
-        const perpPrompt = `[INSTRUÇÃO DE SISTEMA: Analise a proposta abaixo. Verifique a veracidade. No final da sua resposta, escreva obrigatoriamente: "STATUS: [CONSENSO ou NÃO CONSENSO]"]\n\nPROPOSTA DO GEMINI:\n${currentProposal}`;
-        
-        let perpResponse = await interactWithLLM(tabs.perplexity, perpPrompt, "", "perplexity");
-        addMessage("perplexity", perpResponse.content);
+        // Avaliação em Paralelo (Perplexity e ChatGPT)
+        const [perpEval, gptEval] = await Promise.all([
+            interactWithLLM(tabs.perplexity, `[PAPEL: CRÍTICO] Analise a tese abaixo. Busque falhas factuais ou omissões. Se concordar 100%, diga CONSENSO. Se tiver críticas, exponha-as claramente.\n\nTESE:\n${currentThesis}`, "", "perplexity"),
+            interactWithLLM(tabs.chatgpt, `[PAPEL: CRÍTICO] Analise a tese abaixo. Busque falhas de lógica ou melhorias. Se concordar 100%, diga CONSENSO. Se tiver críticas, exponha-as claramente.\n\nTESE:\n${currentThesis}`, "", "chatgpt")
+        ]);
 
-        // A API ENTRA COMO JUIZ
-        addMessage("system", "⚖️ API do Gemini julgando o nível de consenso...");
-        const judgePrompt = `Analise a discussão abaixo. O Especialista (Gemini) e o Checador (Perplexity) chegaram a um acordo total sobre os fatos? Responda iniciando com "VEREDITO: SIM" ou "VEREDITO: NÃO" e justifique.\n\nPROPOSTA:\n${currentProposal}\n\nREVISÃO:\n${perpResponse.content}`;
-        
-        const judgeVerdict = await callGeminiAPI(judgePrompt);
-        addMessage("system", `🤖 Juiz (API): ${judgeVerdict}`);
+        addMessage("perplexity", `<b>Crítica Factual:</b><br>${perpEval.content}`);
+        addMessage("chatgpt", `<b>Crítica Lógica:</b><br>${gptEval.content}`);
 
-        if (judgeVerdict.toUpperCase().includes("VEREDITO: SIM")) {
+        // 4. O JUIZ (API) ANALISA AS DISCORDÂNCIAS
+        addMessage("system", "🤖 Juiz Supremo (API) analisando vereditos...");
+        const judgePrompt = `Você é o Juiz de um debate técnico. Analise se houve consenso total entre os participantes.
+        
+        TESE ATUAL: ${currentThesis}
+        CRÍTICA PERPLEXITY: ${perpEval.content}
+        CRÍTICA CHATGPT: ${gptEval.content}
+
+        REGRAS:
+        - Se ambos concordarem com a tese, retorne apenas: "VEREDITO: CONSENSO".
+        - Se houver qualquer discordância, resuma o ponto principal do conflito e retorne: "VEREDITO: DIVERGÊNCIA. Motivo: [resumo curto]".`;
+
+        const verdict = await callGeminiAPI(judgePrompt);
+        addMessage("system", verdict);
+
+        if (verdict.includes("VEREDITO: CONSENSO")) {
             consensusReached = true;
-            addMessage("system", "✅ Consenso Validado pela API!");
+            addMessage("system", "✅ CONSENSO ALCANÇADO! O debate foi encerrado com sucesso.");
         } else {
-            addMessage("system", "⚠️ API detectou que ainda há divergências. Refinando...");
-            const geminiFeedbackPrompt = `[SISTEMA: A API de julgamento detectou que ainda não há consenso. Corrija sua proposta com base nestas críticas: ${perpResponse.content}]`;
-            let newGeminiResponse = await interactWithLLM(tabs.gemini, geminiFeedbackPrompt, "", "gemini");
-            currentProposal = newGeminiResponse.content;
-            addMessage("gemini", currentProposal);
+            // 5. TRATAMENTO DA DIVERGÊNCIA (DEFESA DO GEMINI)
+            const motivo = verdict.split("Motivo:")[1] || "Discordância geral nos argumentos.";
+            addMessage("system", `🔄 [Reação] Devolvendo críticas para o Gemini ajustar a tese...`);
+            
+            const defensePrompt = `[PAPEL: DEFENSOR] Sua tese foi criticada. O Juiz apontou a seguinte divergência central: "${motivo}". 
+            Analise as críticas do Perplexity e ChatGPT abaixo e formule uma NOVA versão da tese, defendendo seus pontos ou corrigindo as falhas.
+            
+            CRÍTICAS:
+            Perplexity: ${perpEval.content}
+            ChatGPT: ${gptEval.content}
+            
+            SUA NOVA TESE AJUSTADA:`;
+
+            currentThesis = (await interactWithLLM(tabs.gemini, defensePrompt, "", "gemini")).content;
+            addMessage("gemini", `<b>Tese Refinada:</b><br>${currentThesis}`);
         }
     }
 
-    // PASSO 3: O VEREDITO FINAL (CHATGPT)
-    if (tabs.chatgpt) {
-        addMessage("system", "3️⃣ Enviando consenso para o ChatGPT (Editor Final)...");
-        const gptPrompt = `[INSTRUÇÃO DE SISTEMA: O Gemini e o Perplexity debateram e chegaram no consenso abaixo. Atue como Editor-Chefe: Melhore a fluidez, resuma os pontos chaves e dê o veredito final do debate.]\n\nCONSENSO:\n${currentProposal}`;
-        
-        let gptResponse = await interactWithLLM(tabs.chatgpt, gptPrompt, "", "chatgpt");
-        addMessage("chatgpt", gptResponse.content);
-    } else {
-        addMessage("system", "⚠️ ChatGPT não está aberto. Finalizando debate sem o veredito final.");
+    if (!consensusReached) {
+        addMessage("system", "⚠️ Limite de rodadas atingido. O debate terminou em divergência construtiva.");
     }
 
-    addMessage("system", "🎯 Mesa Redonda Concluída!");
+    addMessage("system", "🏁 Processo de Mesa Redonda Finalizado.");
     setDotsStatus('ok');
     state.isDebating = false;
 }
+
 
 async function findRequiredTabs() {
     const allTabs = await chrome.tabs.query({});
