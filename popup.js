@@ -214,8 +214,8 @@ async function interactWithLLM(tabId, prompt, feedback, provider) {
 async function automationScript(text, provider) {
     const selectors = {
         chatgpt: { input: '#prompt-textarea', btn: '[data-testid="send-button"]', response: '[data-message-author-role="assistant"]' },
-        gemini: { input: 'div[role="textbox"], .ql-editor', btn: '.send-button, button[aria-label*="Enviar"]', response: '.message-content, .model-response-text, .content' },
-        perplexity: { input: 'textarea[placeholder*="Ask"], textarea', btn: 'button[aria-label*="Submit"]', response: '.prose' }
+        gemini: { input: 'div[role="textbox"], .ql-editor, div[contenteditable="true"]', btn: '.send-button, button[aria-label*="Enviar"]', response: '.message-content, .model-response-text, .content' },
+        perplexity: { input: '#ask-input, div[contenteditable="true"], textarea', btn: 'button[aria-label*="Submit"], button[aria-label*="Enviar"], button[aria-label*="Send"]', response: '.prose' }
     };
 
     const sel = selectors[provider];
@@ -223,23 +223,33 @@ async function automationScript(text, provider) {
     
     if (!inputField) return "ERRO: Campo de texto não encontrado.";
 
-    // Dispara eventos nativos para acordar o framework da página
+    // Foca e insere o texto
     inputField.focus();
-    if (inputField.tagName === 'TEXTAREA') {
-        inputField.value = text;
-    } else {
-        inputField.innerText = text;
+    
+    // Tenta usar execCommand para frameworks como React (mais estável)
+    try {
+        document.execCommand('selectAll', false, null);
+        document.execCommand('insertText', false, text);
+    } catch(e) {
+        if (inputField.tagName === 'TEXTAREA') {
+            inputField.value = text;
+        } else {
+            inputField.innerText = text;
+        }
     }
+
+    // Dispara eventos nativos para acordar o framework da página
     inputField.dispatchEvent(new Event('input', { bubbles: true }));
     inputField.dispatchEvent(new Event('change', { bubbles: true }));
     
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 1000));
 
     // Tenta clicar no botão de envio
     let btn = document.querySelector(sel.btn);
     if (btn && btn.getAttribute('aria-disabled') !== 'true' && !btn.disabled) {
         btn.click();
     } else {
+        // Fallback para Enter se o botão não estiver pronto
         const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
         inputField.dispatchEvent(enterEvent);
     }
@@ -248,17 +258,18 @@ async function automationScript(text, provider) {
     let previousText = "";
     let stableCount = 0;
     
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 60; i++) { // Aumentado para 60s para debates longos
         await new Promise(r => setTimeout(r, 1000));
         
         const elements = document.querySelectorAll(sel.response);
         if (elements.length > 0) {
             const currentRes = elements[elements.length - 1].innerText.trim();
             
-            if (currentRes.length > 15 && !currentRes.includes("Searching...")) {
+            // Verifica se o texto é substancial e parou de mudar
+            if (currentRes.length > 10 && !currentRes.includes("Searching...")) {
                 if (currentRes === previousText) {
                     stableCount++;
-                    if (stableCount >= 3) return currentRes; // Terminou de gerar
+                    if (stableCount >= 3) return currentRes; // Estabilizou por 3 segundos
                 } else {
                     stableCount = 0; 
                     previousText = currentRes;
