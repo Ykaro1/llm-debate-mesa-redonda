@@ -20,45 +20,63 @@
 
 html, body {
     width: 100%;
-    height: 100vh;
+    height: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
     background-color: var(--bg-color);
-    color: var(--text-primary);
 }
 
 .app-container {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto; /* Header, Status, Chat (Flexível), Footer */
     height: 100vh;
+    max-height: 100vh;
+    width: 100%;
     padding: 12px;
     gap: 12px;
     box-sizing: border-box;
+    overflow: hidden; /* Garante que nada saia do Grid */
 }
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
     height: 40px;
 }
 
-/* Chat Display - Refatorado para rolagem garantida */
+.status-panel {
+    margin-bottom: 0; /* Grid controla o gap */
+}
+
+/* Chat Display - O coração da rolagem */
 .chat-display {
-    flex: 1;
-    min-height: 0;
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 12px;
-    overflow-y: scroll; /* Força a barra de rolagem sempre */
+    overflow-y: auto; /* Rolagem automática */
+    height: 100%; 
+    min-height: 0; /* Permite que o grid encolha este item */
     font-size: 0.9rem;
     word-wrap: break-word;
+    display: block; /* Garante comportamento de bloco para rolagem */
 }
 
+/* Footer sempre visível no grid */
+footer {
+    display: block;
+    padding-top: 4px;
+}
+
+.input-group {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+/* Scrollbar visível e larga */
 .chat-display::-webkit-scrollbar { 
     width: 10px; 
 }
@@ -66,13 +84,6 @@ header {
 .chat-display::-webkit-scrollbar-thumb { 
     background: var(--accent-color); 
     border-radius: 5px;
-}
-
-.message {
-    padding: 10px;
-    margin-bottom: 10px; /* Gap manual em vez de flex */
-    border-radius: 8px;
-    line-height: 1.5;
 }
 
 .message.system { background: transparent; color: var(--text-secondary); font-style: italic; text-align: center; font-size: 0.8rem; }
