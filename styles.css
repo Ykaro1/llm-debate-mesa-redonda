@@ -28,22 +28,21 @@ html, body {
 }
 
 .app-container {
-    display: grid;
-    grid-template-rows: auto auto 1fr auto; /* Header, Status, Chat (Flexível), Footer */
-    height: 100vh;
-    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Ocupa a altura total disponível */
     width: 100%;
     padding: 12px;
     gap: 12px;
     box-sizing: border-box;
-    overflow: hidden; /* Garante que nada saia do Grid */
+    overflow: hidden; /* Proíbe o contêiner principal de rolar */
 }
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 40px;
+    flex-shrink: 0;
 }
 
 .status-panel {
@@ -52,16 +51,16 @@ header {
 
 /* Chat Display - O coração da rolagem */
 .chat-display {
+    flex: 1; /* Ocupa o espaço restante no flexbox */
+    min-height: 0; /* Permite que o container encolha e role */
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 12px;
     overflow-y: auto; /* Rolagem automática */
-    height: 100%; 
-    min-height: 0; /* Permite que o grid encolha este item */
     font-size: 0.9rem;
     word-wrap: break-word;
-    display: block; /* Garante comportamento de bloco para rolagem */
+    display: block; 
 }
 
 /* Footer sempre visível no grid */
