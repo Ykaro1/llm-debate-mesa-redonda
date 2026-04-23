@@ -36,6 +36,15 @@ let state = { rounds: 0, isDebating: false };
 const chatDisplay = document.getElementById('chatDisplay');
 const startBtn = document.getElementById('startBtn');
 const userInput = document.getElementById('userInput');
+const clearBtn = document.getElementById('clearBtn');
+
+// Listener para limpar o histórico manualmente
+clearBtn.addEventListener('click', () => {
+    if (confirm("Deseja limpar todo o histórico do debate?")) {
+        resetDebate();
+        addMessage("system", "Histórico limpo pelo usuário.");
+    }
+});
 
 // OS ELEMENTOS VISUAIS (Que eu havia apagado por acidente!)
 const dots = {
