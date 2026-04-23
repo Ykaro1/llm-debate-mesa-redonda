@@ -6,9 +6,9 @@
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     
-    --status-ok: #10b981;    /* Emerald */
-    --status-thinking: #f59e0b; /* Amber */
-    --status-error: #ef4444;   /* Red */
+    --status-ok: #10b981;
+    --status-thinking: #f59e0b;
+    --status-error: #ef4444;
 }
 
 * {
@@ -23,66 +23,125 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow: hidden; /* Trava o scroll da página inteira */
     background-color: var(--bg-color);
+    color: var(--text-primary);
 }
 
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100vh; /* Ocupa a altura total disponível */
+    height: 100vh; /* Força a ocupar exatamente a altura da tela */
     width: 100%;
     padding: 12px;
     gap: 12px;
     box-sizing: border-box;
-    overflow: hidden; /* Proíbe o contêiner principal de rolar */
+}
+
+/* Elementos fixos (Header, Status, Footer) não podem encolher */
+header, .status-panel, footer {
+    flex-shrink: 0; 
 }
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
+}
+
+header h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+header h1 span {
+    color: var(--accent-color);
+}
+
+#clearBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+}
+
+#clearBtn:hover {
+    color: var(--status-error);
+    background: rgba(239, 68, 68, 0.1);
 }
 
 .status-panel {
-    margin-bottom: 0; /* Grid controla o gap */
-}
-
-/* Chat Display - O coração da rolagem */
-.chat-display {
-    flex: 1; /* Ocupa o espaço restante no flexbox */
-    min-height: 0; /* Permite que o container encolha e role */
+    display: flex;
+    justify-content: space-around;
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 12px;
-    overflow-y: auto; /* Rolagem automática */
-    font-size: 0.9rem;
-    word-wrap: break-word;
-    display: block; 
 }
 
-/* Footer sempre visível no grid */
-footer {
-    display: block;
-    padding-top: 4px;
-}
-
-.input-group {
+.llm-status {
     display: flex;
-    gap: 8px;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
-/* Scrollbar visível e larga */
-.chat-display::-webkit-scrollbar { 
-    width: 10px; 
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--text-secondary);
 }
 
-.chat-display::-webkit-scrollbar-thumb { 
-    background: var(--accent-color); 
-    border-radius: 5px;
+.dot.ok { background-color: var(--status-ok); box-shadow: 0 0 8px var(--status-ok); }
+.dot.thinking { background-color: var(--status-thinking); box-shadow: 0 0 8px var(--status-thinking); animation: pulse 1.5s infinite; }
+.dot.error { background-color: var(--status-error); box-shadow: 0 0 8px var(--status-error); }
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+/* ÁREA DE CHAT - A única que deve rolar */
+.chat-display {
+    flex: 1; /* Ocupa o espaço restante */
+    min-height: 0; /* ESSENCIAL para o scroll funcionar dentro do flexbox */
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
+    overflow-y: auto; /* Scroll vertical */
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chat-display::-webkit-scrollbar { width: 8px; }
+.chat-display::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+.message {
+    padding: 10px 12px;
+    border-radius: 8px;
+    max-width: 95%;
+    line-height: 1.5;
+    font-size: 0.9rem;
+    color: var(--text-primary); /* Força a cor branca no texto */
+    word-wrap: break-word;
+}
+
+.message b, .message strong {
+    color: white;
 }
 
 .message.system { background: transparent; color: var(--text-secondary); font-style: italic; text-align: center; font-size: 0.8rem; }
@@ -90,13 +149,8 @@ footer {
 .message.llm-b { background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--status-thinking); }
 .message.llm-c { background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--status-ok); }
 
-/* Footer / Input */
-footer {
-    padding-top: 8px;
-}
-
+/* INPUT */
 .input-group {
-    position: relative;
     display: flex;
     gap: 8px;
     align-items: flex-end;
@@ -112,7 +166,6 @@ textarea {
     resize: none;
     height: 45px;
     font-size: 0.9rem;
-    transition: all 0.3s ease;
 }
 
 textarea:focus {
@@ -121,7 +174,7 @@ textarea:focus {
     height: 80px;
 }
 
-button {
+button#startBtn {
     background: var(--accent-color);
     border: none;
     border-radius: 12px;
@@ -132,8 +185,4 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
 }
-
-button:hover { transform: translateY(-2px); filter: brightness(1.1); }
-button:active { transform: translateY(0); }
