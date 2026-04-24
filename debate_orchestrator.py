@@ -27,6 +27,7 @@ class DebateOrchestrator:
         )
         await self.context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
+        # Canais de debate
         urls = {
             'gemini_proposer': "https://gemini.google.com/u/1/app?temporary=true",
             'gemini_judge': "https://gemini.google.com/app?temporary=true",
@@ -35,8 +36,12 @@ class DebateOrchestrator:
         }
         
         for name, url in urls.items():
+            print(f"[*] Abrindo aba: {name}...")
             self.pages[name] = await self.context.new_page()
-            await self.pages[name].goto(url, wait_until="networkidle", timeout=60000)
+            try:
+                await self.pages[name].goto(url, wait_until="domcontentloaded", timeout=45000)
+            except Exception as e:
+                print(f"[!] Aviso: Problema ao carregar {name} (tentando prosseguir): {e}")
 
     async def interact(self, page_key, prompt):
         print(f"[*] {page_key.upper()} processando...")
