@@ -20,21 +20,21 @@ class DebateOrchestrator:
         )
         await self.context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
-        # ABA 1: GEMINI PROPONENTE (CONTA HERONET)
+        # ABA 1: GEMINI PROPONENTE (CONTA HERONET - MODO MOMENTÂNEO)
         self.pages['gemini_proposer'] = await self.context.new_page()
-        await self.pages['gemini_proposer'].goto("https://gemini.google.com/u/1/app")
+        await self.pages['gemini_proposer'].goto("https://gemini.google.com/u/1/app?temporary=true")
         
-        # ABA 2: GEMINI JUIZ (CONTA PADRÃO YKARO YURI)
+        # ABA 2: GEMINI JUIZ (CONTA PADRÃO YKARO YURI - MODO MOMENTÂNEO)
         self.pages['gemini_judge'] = await self.context.new_page()
-        await self.pages['gemini_judge'].goto("https://gemini.google.com/app")
+        await self.pages['gemini_judge'].goto("https://gemini.google.com/app?temporary=true")
         
-        # ABA 3: PERPLEXITY
+        # ABA 3: PERPLEXITY (MODO INCOGNITO)
         self.pages['perplexity'] = await self.context.new_page()
-        await self.pages['perplexity'].goto("https://www.perplexity.ai/")
+        await self.pages['perplexity'].goto("https://www.perplexity.ai/?incognito=true")
         
-        # ABA 4: CHATGPT
+        # ABA 4: CHATGPT (MODO TEMPORÁRIO)
         self.pages['chatgpt'] = await self.context.new_page()
-        await self.pages['chatgpt'].goto("https://chatgpt.com/")
+        await self.pages['chatgpt'].goto("https://chatgpt.com/?temporary-chat=true")
 
     async def interact(self, page_key, prompt):
         print(f"[*] Interagindo com {page_key}...")
