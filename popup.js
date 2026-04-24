@@ -246,8 +246,8 @@ async function automationScript(text, provider) {
             response: '.message-content, .model-response-text, .content' 
         },
         perplexity: { 
-            input: '#ask-input, [contenteditable="true"]', 
-            btn: 'button[aria-label*="Submit"], button[aria-label*="Enviar"], button:has(svg path[d*="M12"]), button.bg-button-bg:not([aria-label*="voz"])', 
+            input: '#ask-input, [data-lexical-editor="true"]', 
+            btn: 'button.bg-button-bg, button[aria-label*="Submit"], button[aria-label*="Enviar"]', 
             response: '.prose' 
         }
     };
@@ -259,7 +259,7 @@ async function automationScript(text, provider) {
 
     inputField.focus();
     
-    // Insere o texto de forma mais "viva"
+    // Inserção robusta para Lexical/React
     try {
         document.execCommand('selectAll', false, null);
         document.execCommand('insertText', false, text);
@@ -270,24 +270,22 @@ async function automationScript(text, provider) {
     inputField.dispatchEvent(new Event('input', { bubbles: true }));
     inputField.dispatchEvent(new Event('change', { bubbles: true }));
 
-    // Espera a interface processar o texto
+    // Espera a UI reagir ao texto (importante para o Perplexity trocar o botão de voz para envio)
     await new Promise(r => setTimeout(r, 1500));
 
-    // Busca o botão de envio
+    // Busca o botão
     let sendBtn = document.querySelector(sel.btn);
     
-    if (!sendBtn || sendBtn.disabled) {
-        const buttons = Array.from(document.querySelectorAll('button'));
-        sendBtn = buttons.find(b => {
-            const label = (b.ariaLabel || "").toLowerCase();
-            return (label.includes('send') || label.includes('enviar')) && !label.includes('voz');
-        });
+    // Especial Perplexity: Se o botão ainda for o de "voz", espera um pouco mais
+    if (provider === 'perplexity' && sendBtn && sendBtn.ariaLabel && sendBtn.ariaLabel.includes('voz')) {
+        await new Promise(r => setTimeout(r, 500));
+        sendBtn = document.querySelector(sel.btn); // tenta pegar de novo
     }
 
     if (sendBtn && !sendBtn.disabled) {
         sendBtn.click();
     } else {
-        // Fallback agressivo: Enter
+        // Fallback: Teclado
         const events = ['keydown', 'keypress', 'keyup'];
         events.forEach(type => {
             inputField.dispatchEvent(new KeyboardEvent(type, {
@@ -296,24 +294,17 @@ async function automationScript(text, provider) {
         });
     }
 
-    // Espera a resposta e limpa o lixo
+    // Loop de resposta...
     let lastText = "";
     let stableSecs = 0;
-    
     for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 1000));
         const msgs = document.querySelectorAll(sel.response);
         if (msgs.length > 0) {
             let current = msgs[msgs.length - 1].innerText.trim();
             
-            // FILTRO ANTI-LIXO (Especial para Gemini)
-            current = current.replace(/Abre em uma nova janela/g, '')
-                             .replace(/Conversa com o Gemini/g, '')
-                             .replace(/Conversa temporária/g, '')
-                             .replace(/Atividade nos Apps do Gemini/g, '')
-                             .replace(/Compartilhar/g, '')
-                             .replace(/Copiar/g, '')
-                             .trim();
+            // Limpa lixo do Gemini
+            current = current.replace(/Abre em uma nova janela/g, '').replace(/Conversa temporária/g, '').replace(/Compartilhar/g, '').trim();
 
             if (current.length > 10 && !current.includes("Searching...")) {
                 if (current === lastText) {
