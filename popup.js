@@ -143,12 +143,24 @@ async function startMesaRedonda(prompt) {
             interactWithLLM(tabs.chatgpt, `Analise a tese: ${currentThesis}`, "", "chatgpt")
         ]);
 
+        // VALIDAÇÃO ESTRITA: Se qualquer uma falhar, o debate para
+        if (perpEval.content.startsWith("ERRO")) {
+            addMessage("system", `🚨 DEBATE ABORTADO: O Perplexity não respondeu.`);
+            state.isDebating = false;
+            return;
+        }
+        if (gptEval.content.startsWith("ERRO")) {
+            addMessage("system", `🚨 DEBATE ABORTADO: O ChatGPT não respondeu.`);
+            state.isDebating = false;
+            return;
+        }
+
         addMessage("perplexity", `<b>Crítica Factual:</b><br>${perpEval.content}`);
         addMessage("chatgpt", `<b>Crítica Lógica:</b><br>${gptEval.content}`);
 
         addMessage("system", "🤖 Juiz Supremo (API) analisando vereditos...");
         
-        const judgePrompt = `Você é o Juiz. Analise o consenso.\nTESE: ${currentThesis}\nPERPLEXITY: ${perpEval.content}\nCHATGPT: ${gptEval.content}\n\nSe uma IA deu ERRO, ignore-a.`;
+        const judgePrompt = `Você é o Juiz. Analise o consenso.\nTESE: ${currentThesis}\nPERPLEXITY: ${perpEval.content}\nCHATGPT: ${gptEval.content}`;
 
         const verdict = await callGeminiAPI(judgePrompt);
         addMessage("system", verdict);
@@ -161,12 +173,14 @@ async function startMesaRedonda(prompt) {
             const defensePrompt = `[PAPEL: DEFENSOR] Ajuste sua tese com base nas críticas:\n${perpEval.content}\n${gptEval.content}`;
             const defenseResult = await interactWithLLM(tabs.gemini, defensePrompt, "", "gemini");
             
-            if (!defenseResult.content.startsWith("ERRO")) {
-                currentThesis = defenseResult.content;
-                addMessage("gemini", `<b>Tese Refinada:</b><br>${currentThesis}`);
-            } else {
-                addMessage("system", "⚠️ Gemini falhou ao refinar. Mantendo anterior.");
+            if (defenseResult.content.startsWith("ERRO")) {
+                addMessage("system", "🚨 DEBATE ABORTADO: Gemini falhou ao refinar a tese.");
+                state.isDebating = false;
+                return;
             }
+            
+            currentThesis = defenseResult.content;
+            addMessage("gemini", `<b>Tese Refinada:</b><br>${currentThesis}`);
         }
     }
 
