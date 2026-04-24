@@ -316,9 +316,13 @@ function addMessage(type, text, save = true) {
 
 function resetDebate() {
     state.rounds = 0;
+    state.isDebating = false; // CHAVE: Força o desbloqueio da lógica da interface
     chatDisplay.innerHTML = "";
     chatHistory = [];
     chrome.storage.local.set({ chatHistory: [] });
+    
+    // Repõe o estado visual das bolinhas
+    checkTabsStatus(); 
 }
 
 function setDotsStatus(status) {

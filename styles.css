@@ -31,7 +31,7 @@ html, body {
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100vh; /* Força a ocupar exatamente a altura da tela */
+    height: 100%; /* Alterado de 100vh para 100% para destravar o scroll */
     width: 100%;
     padding: 12px;
     gap: 12px;
