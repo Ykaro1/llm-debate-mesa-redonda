@@ -1,11 +1,10 @@
-2026-04-24 10:18:15,833 - INFO - Iniciando setup do navegador...
-2026-04-24 10:18:18,002 - INFO - Abrindo aba: gemini_proposer -> https://gemini.google.com/u/1/app?temporary=true
-2026-04-24 10:18:18,860 - INFO - Abrindo aba: gemini_judge -> https://gemini.google.com/app?temporary=true
-2026-04-24 10:18:19,474 - INFO - Abrindo aba: perplexity -> https://www.perplexity.ai/?incognito=true
-2026-04-24 10:18:20,395 - INFO - Abrindo aba: chatgpt -> https://chatgpt.com/?temporary-chat=true
-2026-04-24 10:18:21,712 - INFO - INICIANDO DEBATE: SALARIO MINIMO É BOM PARA O POVO BRASILEIRO 
-2026-04-24 10:18:21,714 - INFO - Iniciando interação com gemini_proposer
-2026-04-24 10:18:21,826 - INFO - Ativando modo temporário no gemini_proposer
-2026-04-24 10:18:24,654 - INFO - Injetando JS no gemini_proposer
-2026-04-24 10:18:25,934 - INFO - Botão enviar clicado em gemini_proposer
-2026-04-24 10:18:25,935 - INFO - Aguardando resposta de gemini_proposer...
+2026-04-24 10:19:36,191 - INFO - Iniciando setup do navegador...
+2026-04-24 10:19:38,552 - INFO - Abrindo aba: gemini_proposer -> https://gemini.google.com/u/1/app?temporary=true
+2026-04-24 10:19:39,485 - INFO - Abrindo aba: gemini_judge -> https://gemini.google.com/app?temporary=true
+2026-04-24 10:19:39,981 - INFO - Abrindo aba: perplexity -> https://www.perplexity.ai/?incognito=true
+2026-04-24 10:19:40,931 - INFO - Abrindo aba: chatgpt -> https://chatgpt.com/?temporary-chat=true
+2026-04-24 10:19:42,086 - INFO - INICIANDO DEBATE: SALARIO MINIMO É BOM PARA O POVO BRASILEIRO 
+2026-04-24 10:19:42,087 - INFO - Iniciando interação com gemini_proposer
+2026-04-24 10:19:42,262 - INFO - Injetando JS no gemini_proposer
+2026-04-24 10:19:43,705 - INFO - Botão enviar clicado em gemini_proposer
+2026-04-24 10:19:43,705 - INFO - Aguardando resposta de gemini_proposer...
