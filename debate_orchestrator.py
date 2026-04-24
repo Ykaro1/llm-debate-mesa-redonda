@@ -76,37 +76,51 @@ class DebateOrchestrator:
         cfg = config[key]
 
         try:
-            # Garante que modais não atrapalhem
-            if page_key == 'chatgpt':
+            # ESPERA O GEMINI TERMINAR QUALQUER PROCESSO ANTERIOR
+            if 'gemini' in page_key:
                 try:
-                    btns = await page.query_selector_all("button:has-text('Entendi'), button:has-text('Got it')")
-                    for b in btns: await b.click()
+                    # Espera o ícone de "Gerando..." ou botão "Parar" sumir
+                    for _ in range(10): 
+                        stop_btn = await page.query_selector("button[aria-label*='Parar'], button[aria-label*='Stop']")
+                        if not stop_btn: break
+                        await asyncio.sleep(2)
                 except: pass
 
-            await page.wait_for_selector(cfg['input'], timeout=15000)
+            await page.wait_for_selector(cfg['input'], timeout=20000)
             await page.click(cfg['input'])
+            
+            # Limpeza e Digitação com pausa
             await page.keyboard.press("Control+A")
             await page.keyboard.press("Backspace")
-            await page.type(cfg['input'], prompt, delay=2)
+            await asyncio.sleep(1)
+            await page.type(cfg['input'], prompt, delay=5)
             await asyncio.sleep(1)
             
-            # Tenta botão, se não der, Enter
+            # ENVIO SEGURO
             try:
+                # No Gemini, o botão de enviar só fica habilitado quando termina de processar
+                await page.wait_for_function("() => {
+                    let btn = document.querySelector(\"button.send-button, button[aria-label*='Enviar']\");
+                    return btn && !btn.disabled;
+                }", timeout=10000)
                 btn = await page.query_selector(cfg['btn'])
-                if btn and await btn.is_enabled(): await btn.click()
-                else: await page.keyboard.press("Enter")
+                await btn.click()
             except:
                 await page.keyboard.press("Enter")
             
-            # Espera estabilizar
+            # Espera resposta estabilizar E o botão de enviar voltar
             last_text = ""
-            for _ in range(45):
+            for _ in range(60):
                 await asyncio.sleep(2)
                 elements = await page.query_selector_all(cfg['res'])
                 if elements:
                     current = (await elements[-1].inner_text()).strip()
-                    if len(current) > 20 and current == last_text:
-                        return current
+                    # Se o texto é longo, estável e o botão de enviar voltou
+                    if len(current) > 50 and current == last_text:
+                        # Checa se o botão de enviar está visível e ativo de novo
+                        is_ready = await page.query_selector(cfg['btn'])
+                        if is_ready and await is_ready.is_enabled():
+                            return current
                     last_text = current
             return last_text
         except Exception as e:
