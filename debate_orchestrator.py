@@ -78,51 +78,51 @@ class DebateOrchestrator:
         try:
             # ESPERA O GEMINI TERMINAR QUALQUER PROCESSO ANTERIOR
             if 'gemini' in page_key:
-                try:
-                    # Espera o ícone de "Gerando..." ou botão "Parar" sumir
-                    for _ in range(10): 
-                        stop_btn = await page.query_selector("button[aria-label*='Parar'], button[aria-label*='Stop']")
-                        if not stop_btn: break
-                        await asyncio.sleep(2)
-                except: pass
+                await page.wait_for_selector(cfg['input'])
+                # Espera o botão de enviar ficar habilitado (significa que não está gerando)
+                for _ in range(30):
+                    btn = await page.query_selector(cfg['btn'])
+                    if btn and await btn.is_enabled():
+                        break
+                    await asyncio.sleep(2)
 
             await page.wait_for_selector(cfg['input'], timeout=20000)
             await page.click(cfg['input'])
-            
-            # Limpeza e Digitação com pausa
             await page.keyboard.press("Control+A")
             await page.keyboard.press("Backspace")
             await asyncio.sleep(1)
-            await page.type(cfg['input'], prompt, delay=5)
+            await page.type(cfg['input'], prompt, delay=2)
             await asyncio.sleep(1)
             
             # ENVIO SEGURO
-            try:
-                # No Gemini, o botão de enviar só fica habilitado quando termina de processar
-                await page.wait_for_function("() => {
-                    let btn = document.querySelector(\"button.send-button, button[aria-label*='Enviar']\");
-                    return btn && !btn.disabled;
-                }", timeout=10000)
-                btn = await page.query_selector(cfg['btn'])
-                await btn.click()
-            except:
-                await page.keyboard.press("Enter")
+            await page.keyboard.press("Enter")
             
-            # Espera resposta estabilizar E o botão de enviar voltar
-            last_text = ""
-            for _ in range(60):
+            # ESPERA RESPOSTA FINAL (Garantindo que o botão de enviar volte a ficar azul)
+            print(f"[*] Aguardando conclusão da resposta de {page_key}...")
+            await asyncio.sleep(5) # Delay inicial para a IA começar a escrever
+            
+            for _ in range(90): # Até 3 minutos de espera para respostas longas
                 await asyncio.sleep(2)
                 elements = await page.query_selector_all(cfg['res'])
                 if elements:
                     current = (await elements[-1].inner_text()).strip()
-                    # Se o texto é longo, estável e o botão de enviar voltou
-                    if len(current) > 50 and current == last_text:
-                        # Checa se o botão de enviar está visível e ativo de novo
-                        is_ready = await page.query_selector(cfg['btn'])
-                        if is_ready and await is_ready.is_enabled():
-                            return current
-                    last_text = current
-            return last_text
+                    
+                    # Se detectar erro de interrupção, recarrega a página
+                    if "interrompeu a resposta" in current:
+                        print(f"[!] Erro de interrupção detectado. Recarregando {page_key}...")
+                        await page.reload()
+                        await asyncio.sleep(5)
+                        return "ERRO: Resposta interrompida pelo site."
+
+                    # O segredo: A resposta só acabou quando o botão de enviar VOLTAR a estar habilitado
+                    btn = await page.query_selector(cfg['btn'])
+                    if btn and await btn.is_enabled():
+                        # Espera mais 1 segundo para garantir que o DOM atualizou o texto final
+                        await asyncio.sleep(1)
+                        final_text = (await elements[-1].inner_text()).strip()
+                        return final_text
+            
+            return "ERRO: Timeout aguardando resposta."
         except Exception as e:
             return f"ERRO: {str(e)}"
 
