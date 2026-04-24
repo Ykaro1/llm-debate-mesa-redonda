@@ -112,6 +112,14 @@ header h1 span {
     text-transform: uppercase;
 }
 
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Essencial: impede que o main cresça infinitamente, forçando o scroll no filho */
+    width: 100%;
+}
+
 /* ÁREA DE CHAT - A única que deve rolar */
 .chat-display {
     flex: 1; /* Ocupa o espaço restante */
