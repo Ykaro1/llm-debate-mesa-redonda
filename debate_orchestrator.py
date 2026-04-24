@@ -132,11 +132,44 @@ class DebateOrchestrator:
             # Clique no Enviar
             try:
                 btn = await page.wait_for_selector(cfg['btn'], state="visible", timeout=10000)
-                await btn.click()
-                logging.info(f"Botão enviar clicado em {page_key}")
-            except Exception as e:
-                logging.warning(f"Botão não clicável em {page_key}, tentando Enter: {e}")
-                await page.keyboard.press("Enter")
+            # ENVIO PERSISTENTE (Solução Nuclear via JS)
+            logging.info(f"Iniciando tentativas de envio em {page_key}...")
+            for attempt in range(5):
+                try:
+                    # Tenta encontrar e clicar no botão via JavaScript puro
+                    sent = await page.evaluate(f"""() => {{
+                        let btns = Array.from(document.querySelectorAll('button'));
+                        let sendBtn = btns.find(b => 
+                            (b.getAttribute('aria-label') && b.getAttribute('aria-label').includes('Enviar')) || 
+                            b.querySelector('mat-icon[stringid="send"]') ||
+                            b.classList.contains('send-button')
+                        );
+                        if (sendBtn) {{
+                            sendBtn.click();
+                            return true;
+                        }}
+                        return false;
+                    }}""")
+                    
+                    if not sent:
+                        await page.keyboard.press("Enter")
+                    
+                    await asyncio.sleep(2)
+                    
+                    # Verifica se o texto sumiu
+                    content = await page.evaluate(f"(sel) => document.querySelector(sel) ? document.querySelector(sel).innerText.trim() : ''", cfg['input'])
+                    if not content or len(content) < 2:
+                        logging.info(f"Envio confirmado na tentativa {attempt+1}")
+                        break
+                    
+                    # Backup: Tenta clicar no botão visível se o JS falhar
+                    btn = await page.query_selector(cfg['btn'])
+                    if btn: await btn.click(force=True)
+                    await page.keyboard.press("Enter")
+                    
+                except Exception as e:
+                    logging.error(f"Erro na tentativa {attempt+1}: {e}")
+                    await page.keyboard.press("Enter")
             
             # Espera Resposta
             logging.info(f"Aguardando resposta de {page_key}...")
