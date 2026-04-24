@@ -100,7 +100,7 @@ async function startMesaRedonda(prompt) {
     // 1. VALIDAÇÃO ESTRITA
     const tabs = await checkTabsStatus();
     if (!tabs.gemini || !tabs.perplexity || !tabs.chatgpt) {
-        addMessage("system", "🚨 ERRO: Debate abortado. Esta lógica exige as TRÊS abas abertas (Gemini, Perplexity e ChatGPT).");
+        addMessage("system", "🚨 ERRO: Debate abortado. Esta lógica exige as TRÊS abas abertas.");
         setDotsStatus('error');
         state.isDebating = false;
         return;
@@ -111,67 +111,67 @@ async function startMesaRedonda(prompt) {
     
     // 2. PROPOSTA INICIAL (RODADA 0)
     addMessage("system", "✍️ [Rodada 0] Gemini formulando a Tese Inicial...");
-    const initialPrompt = `[PAPEL: PROPOSITOR] Crie uma tese inicial técnica e detalhada sobre o tema abaixo. Sua tese será desafiada por outros especialistas, então seja robusto.\n\nTEMA: "${prompt}"`;
+    const initialPrompt = `[PAPEL: PROPOSITOR] Crie uma tese inicial técnica e detalhada sobre o tema abaixo.\n\nTEMA: "${prompt}"`;
     
-    let currentThesis = (await interactWithLLM(tabs.gemini, initialPrompt, "", "gemini")).content;
+    let thesisResult = await interactWithLLM(tabs.gemini, initialPrompt, "", "gemini");
+    
+    if (thesisResult.content.startsWith("ERRO")) {
+        addMessage("system", "⚠️ Gemini falhou. Tentando reconectar...");
+        await new Promise(r => setTimeout(r, 2000));
+        thesisResult = await interactWithLLM(tabs.gemini, initialPrompt, "", "gemini");
+    }
+
+    if (thesisResult.content.startsWith("ERRO")) {
+        addMessage("system", "❌ ERRO CRÍTICO: O proponente (Gemini) falhou.");
+        state.isDebating = false;
+        return;
+    }
+
+    let currentThesis = thesisResult.content;
     addMessage("gemini", `<b>Tese Inicial:</b><br>${currentThesis}`);
     
     let consensusReached = false;
     let rounds = 0;
 
-    // 3. LOOP DE AVALIAÇÃO (DEBATE CIRCULAR)
+    // 3. LOOP DE AVALIAÇÃO
     while (!consensusReached && rounds < CONFIG.maxRounds) {
         rounds++;
         addMessage("system", `⚖️ [Rodada ${rounds}] Enviando tese para avaliação crítica...`);
         
-        // Avaliação em Paralelo (Perplexity e ChatGPT)
         const [perpEval, gptEval] = await Promise.all([
-            interactWithLLM(tabs.perplexity, `[PAPEL: CRÍTICO] Analise a tese abaixo. Busque falhas factuais ou omissões. Se concordar 100%, diga CONSENSO. Se tiver críticas, exponha-as claramente.\n\nTESE:\n${currentThesis}`, "", "perplexity"),
-            interactWithLLM(tabs.chatgpt, `[PAPEL: CRÍTICO] Analise a tese abaixo. Busque falhas de lógica ou melhorias. Se concordar 100%, diga CONSENSO. Se tiver críticas, exponha-as claramente.\n\nTESE:\n${currentThesis}`, "", "chatgpt")
+            interactWithLLM(tabs.perplexity, `Analise a tese: ${currentThesis}`, "", "perplexity"),
+            interactWithLLM(tabs.chatgpt, `Analise a tese: ${currentThesis}`, "", "chatgpt")
         ]);
 
         addMessage("perplexity", `<b>Crítica Factual:</b><br>${perpEval.content}`);
         addMessage("chatgpt", `<b>Crítica Lógica:</b><br>${gptEval.content}`);
 
-        // 4. O JUIZ (API) ANALISA AS DISCORDÂNCIAS
         addMessage("system", "🤖 Juiz Supremo (API) analisando vereditos...");
-        const judgePrompt = `Você é o Juiz de um debate técnico. Analise se houve consenso total entre os participantes.
         
-        TESE ATUAL: ${currentThesis}
-        CRÍTICA PERPLEXITY: ${perpEval.content}
-        CRÍTICA CHATGPT: ${gptEval.content}
-
-        REGRAS:
-        - Se ambos concordarem com a tese, retorne apenas: "VEREDITO: CONSENSO".
-        - Se houver qualquer discordância, resuma o ponto principal do conflito e retorne: "VEREDITO: DIVERGÊNCIA. Motivo: [resumo curto]".`;
+        const judgePrompt = `Você é o Juiz. Analise o consenso.\nTESE: ${currentThesis}\nPERPLEXITY: ${perpEval.content}\nCHATGPT: ${gptEval.content}\n\nSe uma IA deu ERRO, ignore-a.`;
 
         const verdict = await callGeminiAPI(judgePrompt);
         addMessage("system", verdict);
 
         if (verdict.includes("VEREDITO: CONSENSO")) {
             consensusReached = true;
-            addMessage("system", "✅ CONSENSO ALCANÇADO! O debate foi encerrado com sucesso.");
+            addMessage("system", "✅ CONSENSO ALCANÇADO!");
         } else {
-            // 5. TRATAMENTO DA DIVERGÊNCIA (DEFESA DO GEMINI)
-            const motivo = verdict.split("Motivo:")[1] || "Discordância geral nos argumentos.";
-            addMessage("system", `🔄 [Reação] Devolvendo críticas para o Gemini ajustar a tese...`);
+            addMessage("system", `🔄 [Reação] Refinando tese...`);
+            const defensePrompt = `[PAPEL: DEFENSOR] Ajuste sua tese com base nas críticas:\n${perpEval.content}\n${gptEval.content}`;
+            const defenseResult = await interactWithLLM(tabs.gemini, defensePrompt, "", "gemini");
             
-            const defensePrompt = `[PAPEL: DEFENSOR] Sua tese foi criticada. O Juiz apontou a seguinte divergência central: "${motivo}". 
-            Analise as críticas do Perplexity e ChatGPT abaixo e formule uma NOVA versão da tese, defendendo seus pontos ou corrigindo as falhas.
-            
-            CRÍTICAS:
-            Perplexity: ${perpEval.content}
-            ChatGPT: ${gptEval.content}
-            
-            SUA NOVA TESE AJUSTADA:`;
-
-            currentThesis = (await interactWithLLM(tabs.gemini, defensePrompt, "", "gemini")).content;
-            addMessage("gemini", `<b>Tese Refinada:</b><br>${currentThesis}`);
+            if (!defenseResult.content.startsWith("ERRO")) {
+                currentThesis = defenseResult.content;
+                addMessage("gemini", `<b>Tese Refinada:</b><br>${currentThesis}`);
+            } else {
+                addMessage("system", "⚠️ Gemini falhou ao refinar. Mantendo anterior.");
+            }
         }
     }
 
     if (!consensusReached) {
-        addMessage("system", "⚠️ Limite de rodadas atingido. O debate terminou em divergência construtiva.");
+        addMessage("system", "⚠️ Limite de rodadas atingido.");
     }
 
     addMessage("system", "🏁 Processo de Mesa Redonda Finalizado.");
