@@ -36,7 +36,9 @@ class DebateOrchestrator:
                 headless=False,
                 ignore_default_args=["--enable-automation"],
                 args=["--start-maximized", "--disable-blink-features=AutomationControlled", "--disable-dev-shm-usage", "--no-sandbox"],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                handle_sigint=True,
+                handle_sigterm=True
             )
             for name, url in self.urls.items():
                 logging.info(f"Abrindo aba: {name}")
@@ -45,6 +47,8 @@ class DebateOrchestrator:
                 self.pages[name] = page
         except Exception as e:
             logging.error(f"Erro no setup: {e}")
+            if "Target page, context or browser has been closed" in str(e):
+                print("\n[!] ERRO: O Chrome já está aberto ou travado. Feche todas as janelas do Chrome e tente novamente.\n")
             raise
 
     async def check_and_recover_page(self, name):

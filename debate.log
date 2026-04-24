@@ -1,5 +1,27 @@
-2026-04-24 10:24:09,716 - INFO - Iniciando setup do navegador...
-2026-04-24 10:24:13,892 - INFO - Abrindo aba: gemini_proposer
-2026-04-24 10:24:15,001 - INFO - Abrindo aba: gemini_judge
-2026-04-24 10:24:15,810 - INFO - Abrindo aba: perplexity
-2026-04-24 10:24:17,019 - INFO - Abrindo aba: chatgpt
+2026-04-24 10:25:04,795 - INFO - Iniciando setup do navegador...
+2026-04-24 10:25:10,307 - ERROR - Erro no setup: BrowserType.launch_persistent_context: Target page, context or browser has been closed
+Browser logs:
+
+<launching> C:\Users\ynunes2026-04-24 10:25:11,356 - INFO - Abrindo aba: chatgpt
+2026-04-24 10:25:13,259 - INFO - Interagindo com gemini_proposer
+2026-04-24 10:25:18,281 - INFO - Enviando mensagem em gemini_proposer...
+2026-04-24 10:25:20,360 - INFO - Aguardando resposta de gemini_proposer...
+2026-04-24 10:25:22,428 - INFO - Interagindo com perplexity
+2026-04-24 10:25:23,707 - INFO - Enviando mensagem em perplexity...
+2026-04-24 10:25:26,741 - INFO - Aguardando resposta de perplexity...
+-disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --start-maximized --disable-blink-features=AutomationControlled --disable-dev-shm-usage --no-sandbox --user-data-dir=C:\Users\ynunes\Documents\LLM debate\playwright_session --remote-debugging-pipe about:blank
+<launched> pid=12720
+[pid=12720][out] Abrindo em uma sess\ufffdo de navegador existente.
+Call log:
+  - <launching> C:\Users\ynunes\AppData\Local\ms-playwright\chromium-1208\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --start-maximized --disable-blink-features=AutomationControlled --disable-dev-shm-usage --no-sandbox --user-data-dir=C:\Users\ynunes\Documents\LLM debate\playwright_session --remote-debugging-pipe about:blank
+  - <launched> pid=12720
+  - [pid=12720][out] Abrindo em uma sess\ufffdo de navegador existente.
+  - [pid=12720] <gracefully close start>
+  - [pid=12720] <kill>
+  - [pid=12720] <will force kill>
+  - [pid=12720] taskkill stderr: ERRO: o processo "12720" n\ufffdo foi encontrado.
+  - [pid=12720] <process did exit: exitCode=0, signal=null>
+  - [pid=12720] starting temporary directories cleanup
+  - [pid=12720] finished temporary directories cleanup
+  - [pid=12720] <gracefully close end>
+
