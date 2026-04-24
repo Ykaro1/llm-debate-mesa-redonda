@@ -1,0 +1,6 @@
+playwright_session/
+__pycache__/
+*.pyc
+.env
+test_api.py
+list_models.py
