@@ -134,7 +134,7 @@ class DebateOrchestrator:
             return f"ERRO: {e}"
 
     async def start_debate(self, tema):
-        print(f"\n🚀 TEMA: {tema}\n" + "="*50)
+        print(f"\n[DEBATE] TEMA: {tema}\n" + "="*50)
         current_thesis = await self.interact('gemini_proposer', f"TEMA: {tema}\nCrie uma tese técnica.")
         for r in range(1, self.max_safe_rounds + 1):
             print(f"\n--- RODADA {r} ---")
@@ -145,7 +145,7 @@ class DebateOrchestrator:
             print(f"[JUIZ]: {veredito[:150]}...")
             if "CONSENSO" in veredito.upper(): break
             current_thesis = await self.interact('gemini_proposer', f"Refine: {veredito}")
-        print("\n🏁 FIM.")
+        print("\n[FIM] Debate encerrado.")
 
 async def main():
     tema = input("Digite o tema: ")
