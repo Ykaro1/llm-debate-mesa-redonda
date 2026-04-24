@@ -108,15 +108,36 @@ class DebateOrchestrator:
             await page.keyboard.press("Backspace")
             await asyncio.sleep(1)
             
-            # Preenchimento direto (mais seguro que digitar letra por letra)
-            await page.fill(cfg['input'], prompt)
+            # Preenchimento Atômico via JavaScript (Infalível para Gemini/Quill)
+            if 'gemini' in page_key:
+                # Injeta o texto e avisa o sistema que houve mudança
+                await page.evaluate(f"""(sel, val) => {{
+                    let el = document.querySelector(sel);
+                    if (el) {{
+                        el.innerText = val;
+                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    }}
+                }}""", cfg['input'], prompt)
+            else:
+                await page.fill(cfg['input'], prompt)
+            
             await asyncio.sleep(1)
             
-            # ENVIO SEGURO (Botão Físico + Enter de backup)
+            # ENVIO SEGURO (Aguarda o botão estar pronto após a injeção)
             try:
-                # Espera o botão de enviar estar pronto
-                btn = await page.wait_for_selector(cfg['btn'], state="visible", timeout=5000)
-                await btn.click()
+                # No Gemini, esperamos o botão não estar mais desabilitado
+                if 'gemini' in page_key:
+                    await page.wait_for_function(f"""() => {{
+                        let btn = document.querySelector("{cfg['btn']}");
+                        return btn && !btn.disabled && btn.offsetParent !== null;
+                    }}""", timeout=10000)
+                
+                btn = await page.query_selector(cfg['btn'])
+                if btn:
+                    await btn.click()
+                else:
+                    await page.keyboard.press("Enter")
             except:
                 await page.keyboard.press("Enter")
             
