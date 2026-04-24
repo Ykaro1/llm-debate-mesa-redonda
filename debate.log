@@ -1,30 +1,10 @@
-2026-04-24 10:13:58,177 - INFO - Iniciando setup do navegador...
-2026-04-24 10:14:00,508 - INFO - Abrindo aba: gemini_proposer -> https://gemini.google.com/u/1/app?temporary=true
-2026-04-24 10:14:01,436 - INFO - Abrindo aba: gemini_judge -> https://gemini.google.com/app?temporary=true
-2026-04-24 10:14:01,894 - INFO - Abrindo aba: perplexity -> https://www.perplexity.ai/?incognito=true
-2026-04-24 10:14:02,852 - INFO - Abrindo aba: chatgpt -> https://chatgpt.com/?temporary-chat=true
-2026-04-24 10:14:04,170 - INFO - INICIANDO DEBATE: SALARIO MINIMO É BOM PARA O POVO BRASILEIRO 
-2026-04-24 10:14:04,172 - INFO - Iniciando interação com gemini_proposer
-2026-04-24 10:14:04,476 - INFO - Ativando modo temporário no gemini_proposer
-2026-04-24 10:14:07,032 - INFO - Injetando JS no gemini_proposer
-2026-04-24 10:14:07,032 - ERROR - Erro na interação com gemini_proposer: Page.evaluate() takes from 2 to 3 positional arguments but 4 were given
-2026-04-24 10:14:07,034 - ERROR - Traceback (most recent call last):
-  File "c:\Users\ynunes\Documents\LLM debate\debate_orchestrator.py", line 118, in interact
-    await page.evaluate(f"""(sel, val) => {{
-          ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
-        let el = document.querySelector(sel);
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        }}
-        ^^
-    }}""", cfg['input'], prompt)
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: Page.evaluate() takes from 2 to 3 positional arguments but 4 were given
-
-2026-04-24 10:14:07,034 - INFO - --- RODADA 1 ---
-2026-04-24 10:14:07,034 - INFO - Iniciando interação com perplexity
-2026-04-24 10:14:18,282 - WARNING - Botão não clicável em perplexity, tentando Enter: Page.wait_for_selector: Timeout 10000ms exceeded.
-Call log:
-  - waiting for locator("button[aria-label*='Submit']") to be visible
-
-2026-04-24 10:14:18,651 - INFO - Aguardando resposta de perplexity...
+2026-04-24 10:15:48,390 - INFO - Iniciando setup do navegador...
+2026-04-24 10:15:50,618 - INFO - Abrindo aba: gemini_proposer -> https://gemini.google.com/u/1/app?temporary=true
+2026-04-24 10:15:51,296 - INFO - Abrindo aba: gemini_judge -> https://gemini.google.com/app?temporary=true
+2026-04-24 10:15:51,676 - INFO - Abrindo aba: perplexity -> https://www.perplexity.ai/?incognito=true
+2026-04-24 10:15:52,287 - INFO - Abrindo aba: chatgpt -> https://chatgpt.com/?temporary-chat=true
+2026-04-24 10:15:52,880 - INFO - INICIANDO DEBATE: SALARIO MINIMO É BOM PARA O POVO BRASILEIRO 
+2026-04-24 10:15:52,880 - INFO - Iniciando interação com gemini_proposer
+2026-04-24 10:15:53,280 - INFO - Injetando JS no gemini_proposer
+2026-04-24 10:15:55,531 - INFO - Botão enviar clicado em gemini_proposer
+2026-04-24 10:15:55,531 - INFO - Aguardando resposta de gemini_proposer...

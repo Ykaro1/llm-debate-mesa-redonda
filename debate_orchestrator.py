@@ -73,7 +73,7 @@ class DebateOrchestrator:
         config = {
             'gemini': {
                 'input': 'div.ql-editor[contenteditable="true"], .ql-editor, [data-placeholder*="Momentânea"]',
-                'btn': "button.send-button, [aria-label*='Enviar'], button:has(mat-icon)",
+                'btn': "button:has(.mat-mdc-button-touch-target), button.send-button, [aria-label*='Enviar']",
                 'res': ".message-content, .model-response-text"
             },
             'perplexity': {
