@@ -1,6 +1,16 @@
 import asyncio
 import time
+import logging
+import traceback
 from playwright.async_api import async_playwright
+
+# Configuração de Log
+logging.basicConfig(
+    filename='debate.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filemode='w' # Sobrescreve o log a cada nova execução
+)
 
 class DebateOrchestrator:
     def __init__(self):
@@ -19,39 +29,45 @@ class DebateOrchestrator:
             'perplexity': "https://www.perplexity.ai/?incognito=true",
             'chatgpt': "https://chatgpt.com/?temporary-chat=true"
         }
+        self.max_safe_rounds = 20
 
     async def setup(self):
-        print("[*] Inicializando navegador (Modo Resiliência Máxima)...")
-        self.playwright = await async_playwright().start()
-        self.context = await self.playwright.chromium.launch_persistent_context(
-            user_data_dir=r"./playwright_session", 
-            headless=False,
-            ignore_default_args=["--enable-automation"],
-            args=[
-                "--start-maximized", 
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage", # Evita crash de memória no Windows/Linux
-                "--no-sandbox"
-            ],
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-        )
-        
-        for name, url in self.urls.items():
-            print(f"[*] Preparando aba: {name}...")
-            page = await self.context.new_page()
-            await page.goto(url, wait_until="domcontentloaded")
-            self.pages[name] = page
+        logging.info("Iniciando setup do navegador...")
+        print("[*] Inicializando navegador (Com Logs ativos)...")
+        try:
+            self.playwright = await async_playwright().start()
+            self.context = await self.playwright.chromium.launch_persistent_context(
+                user_data_dir=r"./playwright_session", 
+                headless=False,
+                ignore_default_args=["--enable-automation"],
+                args=[
+                    "--start-maximized", 
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
+                    "--no-sandbox"
+                ],
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+            )
+            
+            for name, url in self.urls.items():
+                logging.info(f"Abrindo aba: {name} -> {url}")
+                page = await self.context.new_page()
+                await page.goto(url, wait_until="domcontentloaded")
+                self.pages[name] = page
+        except Exception as e:
+            logging.error(f"Erro fatal no setup: {str(e)}")
+            logging.error(traceback.format_exc())
+            raise
 
     async def check_and_recover_page(self, name):
-        """Verifica se a aba ainda está viva, se não, recria."""
         if name not in self.pages or self.pages[name].is_closed():
-            print(f"[!] Aba {name} estava fechada. Recuperando...")
+            logging.warning(f"Aba {name} fechada. Tentando recuperar...")
             self.pages[name] = await self.context.new_page()
             await self.pages[name].goto(self.urls[name], wait_until="domcontentloaded")
 
     async def interact(self, page_key, prompt):
+        logging.info(f"Iniciando interação com {page_key}")
         await self.check_and_recover_page(page_key)
-        print(f"[*] {page_key.upper()} processando...")
         page = self.pages[page_key]
         
         config = {
@@ -76,47 +92,34 @@ class DebateOrchestrator:
         cfg = config[key]
 
         try:
-            # ATIVAÇÃO DO MODO TEMPORÁRIO (GEMINI)
+            # Ativação de Modo Temporário (Gemini)
             if 'gemini' in page_key:
                 try:
-                    # Procura o botão/toggle de Conversa Momentânea
                     temp_toggle = await page.query_selector("button:has-text('Conversa momentânea'), [aria-label*='momentânea']")
                     if temp_toggle:
-                        # Verifica se já está ativo (geralmente muda a cor ou o aria-checked)
                         is_active = await temp_toggle.get_attribute("aria-checked")
                         if is_active != "true":
-                            print(f"[*] Ativando Modo Temporário em {page_key}...")
+                            logging.info(f"Ativando modo temporário no {page_key}")
                             await temp_toggle.click()
                             await asyncio.sleep(2)
                 except: pass
 
-                await page.wait_for_selector(cfg['input'])
-                # Espera o botão de enviar ficar habilitado (significa que não está gerando)
-                for _ in range(30):
+                # Espera o Gemini estar pronto
+                for _ in range(20):
                     btn = await page.query_selector(cfg['btn'])
-                    if btn and await btn.is_enabled():
-                        break
+                    if btn and await btn.is_enabled(): break
                     await asyncio.sleep(2)
 
             await page.wait_for_selector(cfg['input'], timeout=20000)
-            input_field = await page.query_selector(cfg['input'])
-            await input_field.click()
             
-            # Limpeza PROFUNDA antes de enviar
-            await page.fill(cfg['input'], "")
-            await page.keyboard.press("Control+A")
-            await page.keyboard.press("Backspace")
-            await asyncio.sleep(1)
-            
-            # Preenchimento Atômico via JavaScript (Infalível para Gemini/Quill)
+            # Injeção Atômica para Gemini, Fill para os outros
             if 'gemini' in page_key:
-                # Injeta o texto e avisa o sistema que houve mudança
+                logging.info(f"Injetando JS no {page_key}")
                 await page.evaluate(f"""(sel, val) => {{
                     let el = document.querySelector(sel);
                     if (el) {{
                         el.innerText = val;
                         el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
                     }}
                 }}""", cfg['input'], prompt)
             else:
@@ -124,78 +127,65 @@ class DebateOrchestrator:
             
             await asyncio.sleep(1)
             
-            # ENVIO SEGURO (Aguarda o botão estar pronto após a injeção)
+            # Clique no Enviar
             try:
-                # No Gemini, esperamos o botão não estar mais desabilitado
-                if 'gemini' in page_key:
-                    await page.wait_for_function(f"""() => {{
-                        let btn = document.querySelector("{cfg['btn']}");
-                        return btn && !btn.disabled && btn.offsetParent !== null;
-                    }}""", timeout=10000)
-                
-                btn = await page.query_selector(cfg['btn'])
-                if btn:
-                    await btn.click()
-                else:
-                    await page.keyboard.press("Enter")
-            except:
+                btn = await page.wait_for_selector(cfg['btn'], state="visible", timeout=10000)
+                await btn.click()
+                logging.info(f"Botão enviar clicado em {page_key}")
+            except Exception as e:
+                logging.warning(f"Botão não clicável em {page_key}, tentando Enter: {e}")
                 await page.keyboard.press("Enter")
             
-            # ESPERA RESPOSTA FINAL (Garantindo que o botão de enviar volte a ficar azul)
-            print(f"[*] Aguardando conclusão da resposta de {page_key}...")
-            await asyncio.sleep(5) # Delay inicial para a IA começar a escrever
-            
-            for _ in range(90): # Até 3 minutos de espera para respostas longas
+            # Espera Resposta
+            logging.info(f"Aguardando resposta de {page_key}...")
+            for _ in range(90):
                 await asyncio.sleep(2)
                 elements = await page.query_selector_all(cfg['res'])
                 if elements:
                     current = (await elements[-1].inner_text()).strip()
-                    
-                    # Se detectar erro de interrupção, recarrega a página
                     if "interrompeu a resposta" in current:
-                        print(f"[!] Erro de interrupção detectado. Recarregando {page_key}...")
+                        logging.error(f"Interrupção detectada em {page_key}")
                         await page.reload()
-                        await asyncio.sleep(5)
-                        return "ERRO: Resposta interrompida pelo site."
-
-                    # O segredo: A resposta só acabou quando o botão de enviar VOLTAR a estar habilitado
+                        return "ERRO: Interrupção detectada."
+                    
                     btn = await page.query_selector(cfg['btn'])
                     if btn and await btn.is_enabled():
-                        # Espera mais 1 segundo para garantir que o DOM atualizou o texto final
-                        await asyncio.sleep(1)
-                        final_text = (await elements[-1].inner_text()).strip()
-                        return final_text
+                        logging.info(f"Resposta concluída em {page_key}")
+                        return current
             
-            return "ERRO: Timeout aguardando resposta."
+            logging.warning(f"Timeout atingido em {page_key}")
+            return "ERRO: Timeout"
         except Exception as e:
+            logging.error(f"Erro na interação com {page_key}: {str(e)}")
+            logging.error(traceback.format_exc())
             return f"ERRO: {str(e)}"
 
     async def start_debate(self, tema):
-        print(f"\n🚀 DEBATE RESILIENTE: {tema}\n" + "="*50)
+        logging.info(f"INICIANDO DEBATE: {tema}")
+        print(f"\n🚀 DEBATE INICIADO: {tema}\n" + "="*50)
         
-        current_thesis = await self.interact('gemini_proposer', f"TEMA: {tema}\n[PROPOSITOR] Crie uma tese técnica.")
-        if "ERRO" in current_thesis: return
-
+        current_thesis = await self.interact('gemini_proposer', f"TEMA: {tema}\nCrie uma tese técnica.")
+        
         round_num = 0
-        while round_num < 15:
+        while round_num < self.max_safe_rounds:
             round_num += 1
+            logging.info(f"--- RODADA {round_num} ---")
             print(f"\n--- RODADA {round_num} ---")
             
-            # SEQUENCIAL (Mais lento, porém indestrutível)
             perp_crit = await self.interact('perplexity', f"Critique: {current_thesis}")
             gpt_crit = await self.interact('chatgpt', f"Critique: {current_thesis}")
             
-            judge_prompt = f"TESE: {current_thesis}\n\nPERP: {perp_crit}\n\nGPT: {gpt_crit}\n\nResponda 'VEREDITO: CONSENSO' ou 'VEREDITO: DIVERGÊNCIA'."
+            judge_prompt = f"Analise o consenso.\nTESE: {current_thesis}\nPERP: {perp_crit}\nGPT: {gpt_crit}"
             veredito = await self.interact('gemini_judge', judge_prompt)
-            print(f"[JUIZ]: {veredito}")
+            print(f"[JUIZ]: {veredito[:100]}...")
             
             if "CONSENSO" in veredito.upper():
-                print("\n✅ CONSENSO ALCANÇADO!")
+                logging.info("Consenso alcançado!")
                 break
             
-            current_thesis = await self.interact('gemini_proposer', f"Refine com base no Juiz: {veredito}")
+            current_thesis = await self.interact('gemini_proposer', f"Refine: {veredito}")
 
-        print("\n🏁 FIM DO DEBATE.")
+        logging.info("Fim do debate.")
 
 async def main():
     tema = input("Digite o tema do debate: ")
