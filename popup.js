@@ -237,16 +237,16 @@ async function automationScript(text, provider) {
     const selectors = {
         chatgpt: { 
             input: '#prompt-textarea', 
-            btn: '[data-testid="send-button"], button[aria-label*="Send"], button:has(svg[viewBox*="24"])', 
+            btn: '[data-testid="send-button"], button[aria-label*="Send"], button:has(svg)', 
             response: '[data-message-author-role="assistant"], .markdown' 
         },
         gemini: { 
             input: 'div[role="textbox"], .ql-editor', 
-            btn: 'button[aria-label*="Enviar"], .send-button, button:has(svg path[d*="M2"])', 
+            btn: 'button[aria-label*="Enviar"], button[aria-label*="Send"], .send-button-container button, button:has(svg path[d*="M2"])', 
             response: '.message-content, .model-response-text, .content' 
         },
         perplexity: { 
-            input: '#ask-input, [contenteditable="true"], textarea', 
+            input: '#ask-input, [contenteditable="true"]', 
             btn: 'button[aria-label*="Submit"], button[aria-label*="Enviar"], button:has(svg path[d*="M12"]), button.bg-button-bg:not([aria-label*="voz"])', 
             response: '.prose' 
         }
@@ -259,35 +259,44 @@ async function automationScript(text, provider) {
 
     inputField.focus();
     
+    // Insere o texto de forma mais "viva"
     try {
         document.execCommand('selectAll', false, null);
         document.execCommand('insertText', false, text);
     } catch(e) {
-        if (inputField.tagName === 'TEXTAREA') inputField.value = text;
-        else inputField.innerText = text;
+        inputField.innerText = text;
     }
 
     inputField.dispatchEvent(new Event('input', { bubbles: true }));
     inputField.dispatchEvent(new Event('change', { bubbles: true }));
 
-    await new Promise(r => setTimeout(r, 1200));
+    // Espera a interface processar o texto
+    await new Promise(r => setTimeout(r, 1500));
 
+    // Busca o botão de envio
     let sendBtn = document.querySelector(sel.btn);
-    if (!sendBtn || sendBtn.disabled || sendBtn.getAttribute('aria-disabled') === 'true') {
+    
+    if (!sendBtn || sendBtn.disabled) {
         const buttons = Array.from(document.querySelectorAll('button'));
         sendBtn = buttons.find(b => {
             const label = (b.ariaLabel || "").toLowerCase();
-            return (label.includes('send') || label.includes('enviar') || label.includes('submit')) && !label.includes('voz');
+            return (label.includes('send') || label.includes('enviar')) && !label.includes('voz');
         });
     }
 
-    if (sendBtn && !sendBtn.disabled && sendBtn.getAttribute('aria-disabled') !== 'true') {
+    if (sendBtn && !sendBtn.disabled) {
         sendBtn.click();
     } else {
-        const enter = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
-        inputField.dispatchEvent(enter);
+        // Fallback agressivo: Enter
+        const events = ['keydown', 'keypress', 'keyup'];
+        events.forEach(type => {
+            inputField.dispatchEvent(new KeyboardEvent(type, {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+            }));
+        });
     }
 
+    // Espera a resposta e limpa o lixo
     let lastText = "";
     let stableSecs = 0;
     
@@ -297,7 +306,7 @@ async function automationScript(text, provider) {
         if (msgs.length > 0) {
             let current = msgs[msgs.length - 1].innerText.trim();
             
-            // LIMPEZA DE TEXTO (Remove lixo de interface do Gemini)
+            // FILTRO ANTI-LIXO (Especial para Gemini)
             current = current.replace(/Abre em uma nova janela/g, '')
                              .replace(/Conversa com o Gemini/g, '')
                              .replace(/Conversa temporária/g, '')
