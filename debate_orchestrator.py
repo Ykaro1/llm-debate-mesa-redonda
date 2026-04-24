@@ -7,9 +7,16 @@ class DebateOrchestrator:
         self.playwright = None
         self.context = None
         self.pages = {}
+        # Armazena o histórico completo do debate
+        self.debate_history = {
+            'teses': [],
+            'perplexity': [],
+            'chatgpt': [],
+            'vereditos': []
+        }
 
     async def setup(self):
-        print("[*] Inicializando navegador (Modo 100% Site)...")
+        print("[*] Inicializando navegador (Modo Dialético Contínuo)...")
         self.playwright = await async_playwright().start()
         self.context = await self.playwright.chromium.launch_persistent_context(
             user_data_dir=r"./playwright_session", 
@@ -20,53 +27,55 @@ class DebateOrchestrator:
         )
         await self.context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
-        # ABA 1: GEMINI PROPONENTE (CONTA HERONET - MODO MOMENTÂNEO)
-        self.pages['gemini_proposer'] = await self.context.new_page()
-        await self.pages['gemini_proposer'].goto("https://gemini.google.com/u/1/app?temporary=true")
+        # Canais de debate
+        urls = {
+            'gemini_proposer': "https://gemini.google.com/u/1/app?temporary=true",
+            'gemini_judge': "https://gemini.google.com/app?temporary=true",
+            'perplexity': "https://www.perplexity.ai/?incognito=true",
+            'chatgpt': "https://chatgpt.com/?temporary-chat=true"
+        }
         
-        # ABA 2: GEMINI JUIZ (CONTA PADRÃO YKARO YURI - MODO MOMENTÂNEO)
-        self.pages['gemini_judge'] = await self.context.new_page()
-        await self.pages['gemini_judge'].goto("https://gemini.google.com/app?temporary=true")
-        
-        # ABA 3: PERPLEXITY (MODO INCOGNITO)
-        self.pages['perplexity'] = await self.context.new_page()
-        await self.pages['perplexity'].goto("https://www.perplexity.ai/?incognito=true")
-        
-        # ABA 4: CHATGPT (MODO TEMPORÁRIO)
-        self.pages['chatgpt'] = await self.context.new_page()
-        await self.pages['chatgpt'].goto("https://chatgpt.com/?temporary-chat=true")
+        for name, url in urls.items():
+            self.pages[name] = await self.context.new_page()
+            await self.pages[name].goto(url)
 
     async def interact(self, page_key, prompt):
-        print(f"[*] Interagindo com {page_key}...")
+        print(f"[*] {page_key.upper()} processando...")
         page = self.pages[page_key]
         
-        # Seletores dinâmicos
         if 'gemini' in page_key:
             selector = ".ql-editor"
             res_sel = ".message-content, .model-response-text"
         elif 'perplexity' in page_key:
             selector = "#ask-input"
             res_sel = ".prose"
-        else: # chatgpt
+        else:
             selector = "#prompt-textarea"
             res_sel = '[data-message-author-role="assistant"]'
+            try:
+                for btn_text in ["Entendi", "Got it", "Okay"]:
+                    btn = await page.get_by_role("button", name=btn_text).element_handle()
+                    if btn: await btn.click()
+            except: pass
 
         try:
-            await page.wait_for_selector(selector, timeout=10000)
-            await page.fill(selector, prompt)
+            await page.wait_for_selector(selector, timeout=15000)
+            await page.click(selector)
+            await page.keyboard.press("Control+A")
+            await page.keyboard.press("Backspace")
+            await page.type(selector, prompt, delay=5)
             await page.keyboard.press("Enter")
             
-            # Espera resposta estabilizar
             last_text = ""
             stable_count = 0
-            for _ in range(30):
+            for _ in range(50):
                 await asyncio.sleep(2)
                 elements = await page.query_selector_all(res_sel)
                 if elements:
                     current = (await elements[-1].inner_text()).strip()
-                    if len(current) > 10 and current == last_text:
+                    if len(current) > 20 and current == last_text:
                         stable_count += 1
-                        if stable_count >= 2: return current
+                        if stable_count >= 3: return current
                     else:
                         stable_count = 0
                         last_text = current
@@ -75,37 +84,76 @@ class DebateOrchestrator:
             return f"ERRO: {str(e)}"
 
     async def start_debate(self, tema):
-        print(f"\n🚀 INICIANDO DEBATE 100% NAVEGADOR: {tema}\n" + "="*50)
+        print(f"\n🚀 DEBATE DIALÉTICO INICIADO: {tema}\n" + "="*50)
         
-        # 1. Tese Inicial
-        tese = await self.interact('gemini_proposer', f"Crie uma tese técnica sobre: {tema}")
-        print(f"\n[TESE INICIAL]: {tese[:150]}...")
+        # Tese Inicial
+        current_thesis = await self.interact('gemini_proposer', f"TEMA: {tema}\n[PAPEL: PROPOSITOR] Crie uma tese técnica e robusta.")
+        self.debate_history['teses'].append(current_thesis)
         
-        for round in range(1, 4):
-            print(f"\n--- RODADA {round} ---")
+        round_num = 0
+        while True:
+            round_num += 1
+            print(f"\n--- RODADA {round_num} ---")
             
-            # 2. Críticas
+            # Críticas
             tasks = [
-                self.interact('perplexity', f"Critique esta tese: {tese}"),
-                self.interact('chatgpt', f"Critique esta tese: {tese}")
+                self.interact('perplexity', f"Critique esta tese considerando novos dados: {current_thesis}"),
+                self.interact('chatgpt', f"Analise a lógica e aponte falhas nesta tese: {current_thesis}")
             ]
             perp_crit, gpt_crit = await asyncio.gather(*tasks)
-            print(f"[PERPLEXITY]: {perp_crit[:80]}...")
-            print(f"[CHATGPT]: {gpt_crit[:80]}...")
             
-            # 3. Juiz no Site
-            judge_prompt = f"VOCÊ É O JUIZ SUPREMO. Analise o consenso.\nTESE: {tese}\n\nPERP: {perp_crit}\n\nGPT: {gpt_crit}\n\nResponda APENAS 'VEREDITO: CONSENSO' ou 'VEREDITO: DIVERGÊNCIA'."
+            self.debate_history['perplexity'].append(perp_crit)
+            self.debate_history['chatgpt'].append(gpt_crit)
+
+            # PROMPT DE MODERAÇÃO ATIVA (O CÉREBRO DO PROCESSO)
+            history_summary = "\n".join([f"R{i+1}: {t[:100]}..." for i, t in enumerate(self.debate_history['teses'])])
+            
+            convergence_instr = ""
+            if round_num >= 5:
+                convergence_instr = "\n[AVISO DE CONVERGÊNCIA]: Pressione o Proponente a ceder ou integrar as críticas para encerrar o debate agora."
+
+            judge_prompt = f"""
+            VOCÊ É O JUIZ SUPREMO DE UM DEBATE TÉCNICO.
+            
+            TEMA: {tema}
+            TESE ATUAL: {current_thesis}
+            HISTÓRICO DE TESES: {history_summary}
+            
+            CRÍTICA PERPLEXITY: {perp_crit}
+            CRÍTICA CHATGPT: {gpt_crit}
+            
+            SUAS REGRAS DE MODERAÇÃO:
+            1. Se houver acordo total, responda: 'VEREDITO: CONSENSO'.
+            2. Se uma IA repetiu pontos técnicos das rodadas anteriores sem novos dados, emita um 'AVISO DE REPETIÇÃO'.
+            3. Se a postura não mudou após 2 rodadas, pergunte: 'Este é o seu argumento final?'.
+            4. Identifique o 'PONTO DE DISCORDÂNCIA TÉCNICA' exato que impede o consenso.
+            5. {convergence_instr}
+            
+            RESPONDA APENAS O VEREDITO E A ANÁLISE DE MODERAÇÃO.
+            """
+            
             veredito = await self.interact('gemini_judge', judge_prompt)
+            self.debate_history['vereditos'].append(veredito)
             print(f"[JUIZ]: {veredito}")
             
-            if "CONSENSO" in veredito.upper():
-                print("\n✅ CONSENSO ALCANÇADO NO SITE!")
+            if "VEREDITO: CONSENSO" in veredito.upper():
+                print(f"\n✅ CONSENSO ALCANÇADO APÓS {round_num} RODADAS!")
                 break
-            else:
-                print("[*] Refinando tese na aba do Proponente...")
-                tese = await self.interact('gemini_proposer', f"Refine sua tese com base nestas críticas:\n1. {perp_crit}\n2. {gpt_crit}")
+            
+            # Refinamento
+            print("[*] Refinando tese com base na moderação do Juiz...")
+            refine_prompt = f"""
+            [PAPEL: PROPOSITOR] Ajuste sua tese.
+            CRÍTICAS: 
+            1. {perp_crit}
+            2. {gpt_crit}
+            
+            ORIENTAÇÃO DO JUIZ: {veredito}
+            """
+            current_thesis = await self.interact('gemini_proposer', refine_prompt)
+            self.debate_history['teses'].append(current_thesis)
 
-        print("\n🏁 FIM DO DEBATE.")
+        print("\n🏁 PROCESSO DIALÉTICO FINALIZADO.")
 
 async def main():
     tema = input("Digite o tema do debate: ")
