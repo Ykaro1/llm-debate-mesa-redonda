@@ -255,8 +255,8 @@ async function automationScript(text, provider) {
             response: '[data-message-author-role="assistant"], .markdown' 
         },
         gemini: { 
-            input: 'div[role="textbox"], .ql-editor', 
-            btn: 'button[aria-label*="Enviar"], button[aria-label*="Send"], .send-button-container button, button:has(svg path[d*="M2"])', 
+            input: '.ql-editor, div[role="textbox"], rich-textarea', 
+            btn: 'button.send-button, button[aria-label*="Enviar"], button[aria-label*="Send"], .send-button-container button', 
             response: '.message-content, .model-response-text, .content' 
         },
         perplexity: { 
@@ -273,7 +273,7 @@ async function automationScript(text, provider) {
 
     inputField.focus();
     
-    // Inserção robusta para Lexical/React
+    // Inserção robusta
     try {
         document.execCommand('selectAll', false, null);
         document.execCommand('insertText', false, text);
@@ -281,31 +281,34 @@ async function automationScript(text, provider) {
         inputField.innerText = text;
     }
 
+    // Dispara eventos para "acordar" o editor
     inputField.dispatchEvent(new Event('input', { bubbles: true }));
     inputField.dispatchEvent(new Event('change', { bubbles: true }));
+    inputField.dispatchEvent(new KeyboardEvent('input', { bubbles: true }));
 
-    // Espera a UI reagir ao texto (importante para o Perplexity trocar o botão de voz para envio)
     await new Promise(r => setTimeout(r, 1500));
 
-    // Busca o botão
+    // Busca o botão de envio
     let sendBtn = document.querySelector(sel.btn);
     
-    // Especial Perplexity: Se o botão ainda for o de "voz", espera um pouco mais
-    if (provider === 'perplexity' && sendBtn && sendBtn.ariaLabel && sendBtn.ariaLabel.includes('voz')) {
-        await new Promise(r => setTimeout(r, 500));
-        sendBtn = document.querySelector(sel.btn); // tenta pegar de novo
+    // Fallback de busca por label se o seletor falhar
+    if (!sendBtn || sendBtn.disabled) {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        sendBtn = buttons.find(b => {
+            const label = (b.ariaLabel || "").toLowerCase();
+            return (label.includes('enviar') || label.includes('send')) && !label.includes('voz');
+        });
     }
 
     if (sendBtn && !sendBtn.disabled) {
+        // Tenta clicar no botão e no ícone dentro dele (para garantir no Gemini)
         sendBtn.click();
+        const icon = sendBtn.querySelector('mat-icon, svg');
+        if (icon) icon.click();
     } else {
-        // Fallback: Teclado
-        const events = ['keydown', 'keypress', 'keyup'];
-        events.forEach(type => {
-            inputField.dispatchEvent(new KeyboardEvent(type, {
-                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
-            }));
-        });
+        // Enter como último recurso
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true });
+        inputField.dispatchEvent(enter);
     }
 
     // Loop de resposta...
