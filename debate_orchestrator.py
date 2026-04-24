@@ -99,15 +99,26 @@ class DebateOrchestrator:
                     await asyncio.sleep(2)
 
             await page.wait_for_selector(cfg['input'], timeout=20000)
-            await page.click(cfg['input'])
+            input_field = await page.query_selector(cfg['input'])
+            await input_field.click()
+            
+            # Limpeza PROFUNDA antes de enviar
+            await page.fill(cfg['input'], "")
             await page.keyboard.press("Control+A")
             await page.keyboard.press("Backspace")
             await asyncio.sleep(1)
-            await page.type(cfg['input'], prompt, delay=2)
+            
+            # Preenchimento direto (mais seguro que digitar letra por letra)
+            await page.fill(cfg['input'], prompt)
             await asyncio.sleep(1)
             
-            # ENVIO SEGURO
-            await page.keyboard.press("Enter")
+            # ENVIO SEGURO (Botão Físico + Enter de backup)
+            try:
+                # Espera o botão de enviar estar pronto
+                btn = await page.wait_for_selector(cfg['btn'], state="visible", timeout=5000)
+                await btn.click()
+            except:
+                await page.keyboard.press("Enter")
             
             # ESPERA RESPOSTA FINAL (Garantindo que o botão de enviar volte a ficar azul)
             print(f"[*] Aguardando conclusão da resposta de {page_key}...")
