@@ -115,13 +115,15 @@ class DebateOrchestrator:
             # Injeção Atômica para Gemini, Fill para os outros
             if 'gemini' in page_key:
                 logging.info(f"Injetando JS no {page_key}")
-                await page.evaluate(f"""(sel, val) => {{
+                # Passa argumentos como uma lista [sel, val]
+                await page.evaluate(f"""([sel, val]) => {{
                     let el = document.querySelector(sel);
                     if (el) {{
                         el.innerText = val;
                         el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
                     }}
-                }}""", cfg['input'], prompt)
+                }}""", [cfg['input'], prompt])
             else:
                 await page.fill(cfg['input'], prompt)
             
