@@ -76,8 +76,20 @@ class DebateOrchestrator:
         cfg = config[key]
 
         try:
-            # ESPERA O GEMINI TERMINAR QUALQUER PROCESSO ANTERIOR
+            # ATIVAÇÃO DO MODO TEMPORÁRIO (GEMINI)
             if 'gemini' in page_key:
+                try:
+                    # Procura o botão/toggle de Conversa Momentânea
+                    temp_toggle = await page.query_selector("button:has-text('Conversa momentânea'), [aria-label*='momentânea']")
+                    if temp_toggle:
+                        # Verifica se já está ativo (geralmente muda a cor ou o aria-checked)
+                        is_active = await temp_toggle.get_attribute("aria-checked")
+                        if is_active != "true":
+                            print(f"[*] Ativando Modo Temporário em {page_key}...")
+                            await temp_toggle.click()
+                            await asyncio.sleep(2)
+                except: pass
+
                 await page.wait_for_selector(cfg['input'])
                 # Espera o botão de enviar ficar habilitado (significa que não está gerando)
                 for _ in range(30):
