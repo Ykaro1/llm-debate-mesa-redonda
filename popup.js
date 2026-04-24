@@ -13,22 +13,28 @@ const CONFIG = {
 async function callGeminiAPI(prompt) {
     for (const model of GEMINI_MODELS) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 segundos
+
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                signal: controller.signal,
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }]
                 })
             });
+            
+            clearTimeout(timeoutId);
             const data = await response.json();
             if (data.candidates && data.candidates[0].content.parts[0].text) {
                 return data.candidates[0].content.parts[0].text;
             }
         } catch (e) {
-            console.warn(`Falha no modelo ${model}, tentando o próximo...`);
+            console.warn(`Falha no modelo ${model}: ${e.message}`);
         }
     }
-    throw new Error("Todos os modelos da API falharam.");
+    return "VEREDITO: DIVERGÊNCIA. Motivo: Falha técnica na comunicação com o Juiz Supremo.";
 }
 
 let state = { rounds: 0, isDebating: false };
@@ -195,7 +201,20 @@ async function interactWithLLM(tabId, prompt, feedback, provider) {
     const fullPrompt = feedback ? `FEEDBACK DOS OUTROS: ${feedback}\n\nPROMPT: ${prompt}` : prompt;
     
     try {
-        await chrome.tabs.update(tabId, { active: true });
+        const tab = await chrome.tabs.update(tabId, { active: true });
+        
+        // Espera a aba carregar 100% para evitar erro de política de script
+        if (tab.status !== 'complete') {
+            await new Promise(r => {
+                const listener = (id, info) => {
+                    if (id === tabId && info.status === 'complete') {
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        r();
+                    }
+                };
+                chrome.tabs.onUpdated.addListener(listener);
+            });
+        }
         
         const results = await chrome.scripting.executeScript({
             target: { tabId: tabId },
@@ -240,7 +259,6 @@ async function automationScript(text, provider) {
 
     inputField.focus();
     
-    // Método 1: Inserção de texto via comando (mais compatível)
     try {
         document.execCommand('selectAll', false, null);
         document.execCommand('insertText', false, text);
@@ -249,16 +267,12 @@ async function automationScript(text, provider) {
         else inputField.innerText = text;
     }
 
-    // Método 2: Eventos de Input para disparar o estado do React/NextJS
     inputField.dispatchEvent(new Event('input', { bubbles: true }));
     inputField.dispatchEvent(new Event('change', { bubbles: true }));
 
     await new Promise(r => setTimeout(r, 1200));
 
-    // Tenta encontrar o botão de envio (evitando o de voz)
     let sendBtn = document.querySelector(sel.btn);
-    
-    // Fallback: Se não achou pelo seletor, busca qualquer botão que tenha cara de "Enviar"
     if (!sendBtn || sendBtn.disabled || sendBtn.getAttribute('aria-disabled') === 'true') {
         const buttons = Array.from(document.querySelectorAll('button'));
         sendBtn = buttons.find(b => {
@@ -270,12 +284,10 @@ async function automationScript(text, provider) {
     if (sendBtn && !sendBtn.disabled && sendBtn.getAttribute('aria-disabled') !== 'true') {
         sendBtn.click();
     } else {
-        // Último recurso: Simular tecla Enter
         const enter = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
         inputField.dispatchEvent(enter);
     }
 
-    // Espera a resposta estabilizar
     let lastText = "";
     let stableSecs = 0;
     
@@ -283,7 +295,17 @@ async function automationScript(text, provider) {
         await new Promise(r => setTimeout(r, 1000));
         const msgs = document.querySelectorAll(sel.response);
         if (msgs.length > 0) {
-            const current = msgs[msgs.length - 1].innerText.trim();
+            let current = msgs[msgs.length - 1].innerText.trim();
+            
+            // LIMPEZA DE TEXTO (Remove lixo de interface do Gemini)
+            current = current.replace(/Abre em uma nova janela/g, '')
+                             .replace(/Conversa com o Gemini/g, '')
+                             .replace(/Conversa temporária/g, '')
+                             .replace(/Atividade nos Apps do Gemini/g, '')
+                             .replace(/Compartilhar/g, '')
+                             .replace(/Copiar/g, '')
+                             .trim();
+
             if (current.length > 10 && !current.includes("Searching...")) {
                 if (current === lastText) {
                     stableSecs++;
