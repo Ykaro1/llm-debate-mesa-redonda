@@ -24,10 +24,10 @@ async def run_login():
         
         # Cria as abas iniciais
         page1 = context.pages[0]
-        await page1.goto("https://gemini.google.com/u/1/app?temporary=true")
+        await page1.goto("https://gemini.google.com/u/1/app?pageId=none")
         
         page2 = await context.new_page()
-        await page2.goto("https://www.perplexity.ai/?incognito=true")
+        await page2.goto("https://www.perplexity.ai/")
         
         page3 = await context.new_page()
         await page3.goto("https://chatgpt.com/?temporary-chat=true")
